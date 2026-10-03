@@ -1,0 +1,13 @@
+.build/
+.swiftpm/
+*.xcodeproj/
+DerivedData/
+.DS_Store
+.serena/
+
+# Local configuration may contain API keys.
+models.json
+models.json.bak
+auth.json
+.env
+.env.*

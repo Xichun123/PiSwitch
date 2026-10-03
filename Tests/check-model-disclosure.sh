@@ -1,0 +1,155 @@
+#!/bin/bash
+# Run from the project root; requires macOS System Events accessibility permission.
+# Uses only two fictional models, never the user's configuration.
+set -euo pipefail
+swift build
+tmp=$(mktemp -d)
+pid=""
+trap 'if [ -n "$pid" ]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi; rm -rf "$tmp"' EXIT
+python3 - "$tmp/Check.swift" <<'PY'
+from pathlib import Path
+import sys
+source = Path('Sources/PiSwitch/Views/ProviderEditorView.swift').read_text()
+model = source[source.index('private struct ModelSection'):source.rindex('#endif')]
+Path(sys.argv[1]).write_text('''import SwiftUI
+import AppKit
+import PiSwitchCore
+struct ProviderEditorView { static let apiPresets = ["openai-responses", "anthropic-messages"] }
+''' + model + '''
+struct Fixture: View {
+    @State var models = [ModelDraft(json: ["id": .string("alpha"), "input": .array([.string("text"), .string("image")])]), ModelDraft(json: ["id": .string("beta")])]
+    var body: some View {
+        Form {
+            ForEach($models) { $model in
+                ModelSection(model: $model, providerAPI: "openai-responses", providerBaseURL: "https://proxy.example/v1") {
+                    models.removeAll { $0.id == model.id }
+                }
+            }
+        }.formStyle(.grouped).frame(width: 850, height: 850)
+    }
+}
+@main struct Check {
+    @MainActor static func main() {
+        let app = NSApplication.shared
+        app.setActivationPolicy(.regular)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 850, height: 850), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.title = "ModelDisclosureCheck"
+        window.contentView = NSHostingView(rootView: Fixture())
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        app.activate(ignoringOtherApps: true)
+        app.run()
+    }
+}
+''')
+PY
+bin=$(swift build --show-bin-path)
+swiftc -parse-as-library -I "$bin" "$tmp/Check.swift" "$bin/PiSwitchCore.o" -o "$tmp/ModelDisclosureCheck"
+"$tmp/ModelDisclosureCheck" > "$tmp/log" 2>&1 &
+pid=$!
+osascript - "$pid" <<'APPLESCRIPT'
+on checkState(pid, expectedFields, expectedCollapsed, expectedExpanded)
+    tell application "System Events"
+        set p to first process whose unix id is pid
+        set fields to 0
+        set collapsed to 0
+        set expandedCount to 0
+        set nodes to entire contents of window 1 of p
+        repeat with node in nodes
+            if role of node is "AXTextField" then set fields to fields + 1
+            if role of node is "AXButton" then
+                if value of node is "已折叠" then set collapsed to collapsed + 1
+                if value of node is "已展开" then set expandedCount to expandedCount + 1
+            end if
+        end repeat
+        if {fields, collapsed, expandedCount} is not {expectedFields, expectedCollapsed, expectedExpanded} then error "Unexpected fields/collapsed/expanded counts: " & fields & "/" & collapsed & "/" & expandedCount
+    end tell
+end checkState
+
+on toggleFirst(pid, state)
+    tell application "System Events"
+        set p to first process whose unix id is pid
+        set nodes to entire contents of window 1 of p
+        repeat with node in nodes
+            if role of node is "AXButton" and value of node is state then
+                click node
+                delay 0.3
+                return
+            end if
+        end repeat
+        error "Missing model toggle"
+    end tell
+end toggleFirst
+
+on checkInput(pid, textValue, imageValue)
+    tell application "System Events"
+        set p to first process whose unix id is pid
+        set nodes to entire contents of window 1 of p
+        set found to 0
+        repeat with node in nodes
+            if role of node is "AXCheckBox" then
+                if name of node is "文本" then
+                    if value of node is not textValue then error "Unexpected text selection"
+                    set found to found + 1
+                else if name of node is "图像" then
+                    if value of node is not imageValue then error "Unexpected image selection"
+                    set found to found + 1
+                end if
+            end if
+        end repeat
+        if found is not 2 then error "Missing input checkboxes"
+    end tell
+end checkInput
+
+on run argv
+    set pid to item 1 of argv as integer
+    tell application "System Events"
+        repeat 50 times
+            if exists (first process whose unix id is pid) then
+                set p to first process whose unix id is pid
+                if exists window 1 of p then exit repeat
+            end if
+            delay 0.1
+        end repeat
+    end tell
+    checkState(pid, 0, 2, 0)
+    toggleFirst(pid, "已折叠")
+    checkState(pid, 9, 1, 1)
+    checkInput(pid, 1, 1)
+    tell application "System Events"
+        set nodes to entire contents of window 1 of p
+        repeat with node in nodes
+            if role of node is "AXCheckBox" and name of node is "文本" then click node
+        end repeat
+    end tell
+    delay 0.3
+    checkInput(pid, 0, 1)
+    tell application "System Events"
+        set nodes to entire contents of window 1 of p
+        repeat with node in nodes
+            if role of node is "AXTextField" and name of node is "名称" then
+                set frontmost of p to true
+                set focused of node to true
+                keystroke "a" using command down
+                keystroke "Edited"
+                key code 48
+                delay 0.3
+            end if
+        end repeat
+    end tell
+    toggleFirst(pid, "已展开")
+    checkState(pid, 0, 2, 0)
+    toggleFirst(pid, "已折叠")
+    checkState(pid, 9, 1, 1)
+    checkInput(pid, 0, 1)
+    tell application "System Events"
+        set nodes to entire contents of window 1 of p
+        repeat with node in nodes
+            if role of node is "AXTextField" and name of node is "名称" then
+                if value of node is not "Edited" then error "Collapsed model lost its edit: " & value of node
+            end if
+        end repeat
+    end tell
+    return "PASS: default collapse, independent input checkboxes, and retained edits"
+end run
+APPLESCRIPT
