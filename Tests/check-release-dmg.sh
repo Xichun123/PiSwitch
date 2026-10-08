@@ -8,8 +8,9 @@ fi
 hdiutil verify "$1"
 work=$(mktemp -d)
 volume="$work/volume"
+mkdir -p "$volume"
 mounted=0
-trap 'if [[ "$mounted" == 1 ]]; then diskutil eject "$volume"; fi; rmdir "$work"' EXIT
+trap 'if [[ "$mounted" == 1 ]]; then diskutil eject "$volume" || true; fi; rm -rf "$work"' EXIT
 diskutil image attach --readOnly --nobrowse --mountPoint "$volume" "$1"
 mounted=1
 app="$volume/PiSwitch.app"
