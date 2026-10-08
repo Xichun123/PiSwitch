@@ -10,7 +10,7 @@ Status: implemented
 
 scripts/package-release.sh 接收三段数字版本号（可带 v 前缀），原生 Release 构建后生成 PiSwitch.app，使用 ad-hoc 签名，再用 macOS 27 的 diskutil image create from 创建压缩只读 DMG。镜像包含应用和指向 /Applications 的快捷链接，不打包用户配置。应用图标的资源与声明遵循 [PiSwitch 应用图标](../feature/2026-10-08-app-icon.md)，在签名前复制到应用包。最低系统版本从二进制的部署目标读取，文件名标明构建主机架构，版本号写入 Info.plist；产物位于被忽略的 .build 下，已有同名 DMG 不覆盖。
 
-v0.1.0 使用与现有标签相同的应用源码补充 DMG，不移动标签，不删除既有 ZIP；后续应用下载包只上传 DMG。校验文件可以继续提供，GitHub 自动生成的源码归档不属于应用安装包。README 固定这一发布规则。脚本只打包和校验，远程上传仍是显式操作，不加入自动发布 CI。
+v0.1.0 使用与现有标签相同的应用源码补充 DMG，不移动标签，不删除既有 ZIP；后续应用下载包只上传 DMG。校验文件可以继续提供，GitHub 自动生成的源码归档不属于应用安装包。README 固定这一发布规则。本地脚本只打包和校验；自动发布流程由 [GitHub Actions 自动发布 CI](2026-10-08-release-workflow.md) 在推送版本标签时触发。
 
 用户明确不需要 Apple 公证。后续发布保持 ad-hoc 签名 + DMG，不新增 Apple 公证、凭据收集、提交或 stapling 流程；这不是等待签名凭据的临时缺口。只有用户再次明确要求时，才重新评估签名与公证方案。首次打开可能出现的 Gatekeeper 提示继续如实说明，不建议关闭系统安全检查。
 

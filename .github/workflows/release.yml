@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag or version to release (e.g. v0.1.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Publish DMG
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Select Xcode
+        run: |
+          if [ -d "/Applications/Xcode.app/Contents/Developer" ]; then
+            sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          fi
+          xcodebuild -version || true
+          swift --version
+
+      - name: Run test suite
+        run: swift test
+
+      - name: Package DMG
+        id: package
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          version="${tag#v}"
+          echo "Packaging PiSwitch version: ${version} (tag: ${tag})"
+          bash scripts/package-release.sh "$version"
+          arch="$(uname -m)"
+          out=".build/release-v${version}"
+          dmg="${out}/PiSwitch-v${version}-macos-${arch}.dmg"
+          (cd "$out" && shasum -a 256 "PiSwitch-v${version}-macos-${arch}.dmg" > "SHA256SUMS.txt")
+          echo "dmg=${dmg}" >> "$GITHUB_OUTPUT"
+          echo "checksums=${out}/SHA256SUMS.txt" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.package.outputs.tag }}"
+          dmg="${{ steps.package.outputs.dmg }}"
+          checksums="${{ steps.package.outputs.checksums }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release ${tag} already exists; uploading assets..."
+            gh release upload "$tag" "$dmg" "$checksums" --clobber
+          else
+            echo "Creating release ${tag}..."
+            gh release create "$tag" "$dmg" "$checksums" \
+              --title "PiSwitch ${tag}" \
+              --generate-notes
+          fi

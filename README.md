@@ -42,7 +42,9 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run PiSwitch
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer bash scripts/package-release.sh 0.1.0
 ```
 
-产物为 `.build/release-v<版本>/PiSwitch-v<版本>-macos-<架构>.dmg`，只构建当前主机架构，不覆盖已有同名 DMG。脚本自动检查镜像、应用图标、签名、版本和安装链接，也可单独运行 `bash Tests/check-release-dmg.sh <DMG路径> <版本号>`。发布时上传 DMG，校验和可作为独立附件提供。
+产物为 `.build/release-v<版本>/PiSwitch-v<版本>-macos-<架构>.dmg`，只构建当前主机架构，不覆盖已有同名 DMG。脚本自动检查镜像、应用图标、签名、版本和安装链接，也可单独运行 `bash Tests/check-release-dmg.sh <DMG路径> <版本号>`。
+
+向仓库推送 `v*` 标签（如 `v0.1.1`）会触发 GitHub Actions 自动构建、打包并发布 Release（含 DMG 与 SHA256SUMS.txt）；也可在本地手动打包发布。
 
 应用仅使用 ad-hoc 签名，未经过 Apple 公证。首次启动可能需要在「系统设置 → 隐私与安全性」按系统提示允许打开；请勿关闭全局 Gatekeeper。
 
