@@ -44,7 +44,17 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer bash scripts/package-re
 
 产物为 `.build/release-v<版本>/PiSwitch-v<版本>-macos-<架构>.dmg`，只构建当前主机架构，不覆盖已有同名 DMG。脚本自动检查镜像、应用图标、签名、版本和安装链接，也可单独运行 `bash Tests/check-release-dmg.sh <DMG路径> <版本号>`。
 
-向仓库推送 `v*` 标签（如 `v0.1.1`）会触发 GitHub Actions 自动构建、打包并发布 Release（含 DMG 与 SHA256SUMS.txt）；也可在本地手动打包发布。
+向仓库推送 `v<三段数字版本号>` 标签（如 `v0.1.1`）会触发 GitHub Actions 自动构建、打包并发布 Release（含 DMG 与 `SHA256SUMS.txt`）。`v*` 标签会进入工作流，但不符合版本格式的标签会被拒绝；也可在本地手动打包发布。
+
+在 Actions 的 Release 工作流中手动运行时，`tag` 可填写 `v0.1.1` 或 `0.1.1`，两者都指向**已经推送的 `v0.1.1` 标签**。例如：
+
+```sh
+gh workflow run release.yml --ref main -f tag=v0.1.1
+```
+
+`--ref main` 选择工作流定义，不决定打包源码。工作流先解析目标标签，再按确定的提交 SHA 检出、测试和打包；缺失标签不会被自动创建，标签在构建期间移动或删除会使发布失败。同一版本的发布任务串行执行；重新运行会替换该 Release 的同名 DMG 和校验文件，但只允许从目标标签对应的提交构建。历史标签若不含打包脚本或无法通过当前 runner 的测试，任务会失败，不会退回 `main` 构建。
+
+发布流程回归检查可在项目根目录运行 `ruby Tests/check-release-workflow.rb`，只使用本地模拟命令，不访问网络或修改 Release。工作流在发布前也运行这项检查。
 
 应用仅使用 ad-hoc 签名，未经过 Apple 公证。首次启动可能需要在「系统设置 → 隐私与安全性」按系统提示允许打开；请勿关闭全局 Gatekeeper。
 
