@@ -8,7 +8,7 @@ Status: implemented
 
 ## Decision
 
-scripts/package-release.sh 接收三段数字版本号（可带 v 前缀），原生 Release 构建后生成 PiSwitch.app，使用 ad-hoc 签名，再用 macOS 27 的 diskutil image create from 创建压缩只读 DMG。镜像包含应用和指向 /Applications 的快捷链接，不打包用户配置。最低系统版本从二进制的部署目标读取，文件名标明构建主机架构，版本号写入 Info.plist；产物位于被忽略的 .build 下，已有同名 DMG 不覆盖。
+scripts/package-release.sh 接收三段数字版本号（可带 v 前缀），原生 Release 构建后生成 PiSwitch.app，使用 ad-hoc 签名，再用 macOS 27 的 diskutil image create from 创建压缩只读 DMG。镜像包含应用和指向 /Applications 的快捷链接，不打包用户配置。应用图标的资源与声明遵循 [PiSwitch 应用图标](../feature/2026-10-08-app-icon.md)，在签名前复制到应用包。最低系统版本从二进制的部署目标读取，文件名标明构建主机架构，版本号写入 Info.plist；产物位于被忽略的 .build 下，已有同名 DMG 不覆盖。
 
 v0.1.0 使用与现有标签相同的应用源码补充 DMG，不移动标签，不删除既有 ZIP；后续应用下载包只上传 DMG。校验文件可以继续提供，GitHub 自动生成的源码归档不属于应用安装包。README 固定这一发布规则。脚本只打包和校验，远程上传仍是显式操作，不加入自动发布 CI。
 
@@ -27,7 +27,7 @@ v0.1.0 使用与现有标签相同的应用源码补充 DMG，不移动标签，
 ## Consequences
 
 - 下载者可从只读镜像直接拖拽安装；后续版本复用同一脚本，版本与最低系统要求不靠手工填入。
-- DMG 不解决 Gatekeeper：应用只有 ad-hoc 签名，没有 Developer ID 或 Apple 公证。仅构建当前主机架构，不承诺 Universal。没有自定义 Finder 布局，不影响拖拽安装；外观仅在有明确需求时扩展，签名与公证仅在用户重新明确要求时评估。
+- DMG 不解决 Gatekeeper：应用只有 ad-hoc 签名，没有 Developer ID 或 Apple 公证。仅构建当前主机架构，不承诺 Universal。没有自定义 Finder 布局，不影响拖拽安装；DMG 窗口外观仅在有明确需求时扩展，签名与公证仅在用户重新明确要求时评估。
 - 已有同名产物必须由操作者明确移走才能重新打包，避免意外覆盖；上传现有发行版的安装包时不使用 clobber，校验清单更新才允许显式替换。
 - 完整 GUI 和下载后的 Gatekeeper 验收不在镜像结构检查范围内；不修改真实 models.json，不启动应用。
 
