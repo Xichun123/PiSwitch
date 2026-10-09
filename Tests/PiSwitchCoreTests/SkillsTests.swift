@@ -109,6 +109,57 @@ extension SkillsTests {
         XCTAssertEqual(current.commit, try fixture(3).snapshot.commit)
     }
 
+    func testFinderMetadataIgnoredInCurrentAndLegacyBackups() async throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let root = directory.appendingPathComponent("library")
+        let store = SkillStore(root: root, home: directory)
+        _ = try await store.install(fixture())
+        var library = try await store.inspect().library
+        let current = root.appendingPathComponent("skills/test-skill")
+        let metadata = Data("Finder metadata".utf8)
+        for path in [".DS_Store", "scripts/.DS_Store"] {
+            try metadata.write(to: current.appendingPathComponent(path))
+            // Simulate a baseline written by an older app version.
+            library.skills[0].baseline[path] = SkillFileStamp(hash: SkillSafety.digest(metadata), executable: 0, directory: false)
+        }
+        try JSONEncoder().encode(library).write(to: root.appendingPathComponent("skills-state.json"))
+        try Data("changed layout".utf8).write(to: current.appendingPathComponent(".DS_Store"))
+        try FileManager.default.removeItem(at: current.appendingPathComponent("scripts/.DS_Store"))
+        let changes = try await store.localChanges(library.skills[0])
+        XCTAssertEqual(changes, [])
+        let inspection = try await store.inspect()
+        XCTAssertEqual(inspection.localChanges[library.skills[0].id], [])
+        _ = try await store.update(library.skills[0].id, with: fixture(2))
+        let backup = root.appendingPathComponent("backups/test-skill/files")
+        try Data("backup layout".utf8).write(to: backup.appendingPathComponent(".DS_Store"))
+        try metadata.write(to: backup.appendingPathComponent("scripts/.DS_Store"))
+        _ = try await store.update(library.skills[0].id, with: fixture(3))
+        let updated = try await store.inspect().library.skills[0]
+        XCTAssertEqual(updated.commit, try fixture(3).snapshot.commit)
+        XCTAssertNil(updated.baseline[".DS_Store"])
+        XCTAssertNil(updated.baseline["scripts/.DS_Store"])
+
+        try metadata.write(to: current.appendingPathComponent(".DS_Store"))
+        try metadata.write(to: current.appendingPathComponent("scripts/.DS_Store"))
+        let hidden = current.appendingPathComponent(".user-config")
+        try Data("user settings".utf8).write(to: hidden)
+        let hiddenChanges = try await store.localChanges(updated)
+        XCTAssertEqual(hiddenChanges, ["新增：.user-config"])
+        do { _ = try await store.update(updated.id, with: fixture(4)); XCTFail("Overwrote user config") } catch {}
+        XCTAssertEqual(try Data(contentsOf: hidden), Data("user settings".utf8))
+        try FileManager.default.removeItem(at: hidden)
+
+        let finderPath = current.appendingPathComponent(".DS_Store")
+        try FileManager.default.removeItem(at: finderPath)
+        try FileManager.default.createDirectory(at: finderPath, withIntermediateDirectories: false)
+        let directoryChanges = try await store.localChanges(updated)
+        XCTAssertEqual(directoryChanges, ["新增：.DS_Store"])
+        try FileManager.default.removeItem(at: finderPath)
+        try FileManager.default.createSymbolicLink(at: finderPath, withDestinationURL: current.appendingPathComponent("SKILL.md"))
+        do { _ = try await store.localChanges(updated); XCTFail("Ignored symlink named .DS_Store") } catch {}
+    }
+
     func testLocalChangesSkipAndRecheckBeforeReplace() async throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

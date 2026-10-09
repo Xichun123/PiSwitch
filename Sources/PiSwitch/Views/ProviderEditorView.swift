@@ -211,6 +211,17 @@ private struct ModelSection: View {
                     Label("模型地址使用 http://，Key 会以明文在网络上传输", systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                 }
+                Toggle("覆写 User-Agent", isOn: Binding(
+                    get: { model.userAgentEnabled },
+                    set: { model.setUserAgentEnabled($0) }
+                ))
+                .toggleStyle(.switch)
+                .accessibilityIdentifier("model-user-agent-enabled")
+                .help("仅修改当前模型的 headers.User-Agent；关闭移除模型覆写，不影响 provider 的请求头。")
+                if model.userAgentEnabled {
+                    TextField("User-Agent", text: $model.userAgent.text)
+                        .accessibilityIdentifier("model-user-agent-value")
+                }
                 Picker("推理（reasoning）", selection: $model.reasoning.text) {
                     Text("未设置").tag("")
                     Text("true").tag("true")

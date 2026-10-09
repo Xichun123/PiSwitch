@@ -109,7 +109,7 @@ public actor SkillStore {
             try fm.createDirectory(at: snapshot, withIntermediateDirectories: false)
             try fm.copyItem(at: current, to: snapshot.appendingPathComponent("files"))
             try ConfigStore.secureWrite(try JSONEncoder().encode(old), to: snapshot.appendingPathComponent("record.json"))
-            guard try stamps(at: snapshot.appendingPathComponent("files")) == old.baseline else { throw SkillError("备份期间文件发生变化，已停止更新。") }
+            guard try stamps(at: snapshot.appendingPathComponent("files")) == trackedBaseline(old) else { throw SkillError("备份期间文件发生变化，已停止更新。") }
             try before(.replace)
             guard try localChanges(old).isEmpty else { throw SkillError("替换前检测到本地修改，已停止更新。") }
             if try itemType(backup) != nil { try validateBackup(backup, skill: old) }
@@ -209,9 +209,10 @@ public actor SkillStore {
 
     public func localChanges(_ skill: InstalledSkill) throws -> [String] {
         let actual = try stamps(at: skillsURL.appendingPathComponent(skill.name))
-        return Set(actual.keys).union(skill.baseline.keys).sorted().compactMap { path in
-            guard actual[path] != skill.baseline[path] else { return nil }
-            if skill.baseline[path] == nil { return "新增：\(path)" }
+        let baseline = trackedBaseline(skill)
+        return Set(actual.keys).union(baseline.keys).sorted().compactMap { path in
+            guard actual[path] != baseline[path] else { return nil }
+            if baseline[path] == nil { return "新增：\(path)" }
             if actual[path] == nil { return "删除：\(path)" }
             return "变化：\(path)"
         }
@@ -318,6 +319,11 @@ public actor SkillStore {
         return try stamps(at: directory)
     }
 
+    private func trackedBaseline(_ skill: InstalledSkill) -> [String: SkillFileStamp] {
+        // Older records may include Finder metadata; use the same exclusion as the live scan.
+        skill.baseline.filter { $0.value.directory || $0.key.split(separator: "/").last != ".DS_Store" }
+    }
+
     private func stamps(at directory: URL) throws -> [String: SkillFileStamp] {
         guard try itemType(directory) == .typeDirectory else { throw SkillError("skill 目录不可用或被替换为链接：\(directory.path)") }
         var result: [String: SkillFileStamp] = [:]
@@ -328,6 +334,7 @@ public actor SkillStore {
                 try SkillSafety.validatePath(path)
                 let attributes = try fm.attributesOfItem(atPath: child.path)
                 let type = attributes[.type] as? FileAttributeType
+                if child.lastPathComponent == ".DS_Store", type == .typeRegular { continue }
                 let permissions = (attributes[.posixPermissions] as? NSNumber)?.intValue ?? 0
                 guard result.count < Self.maxLocalEntries else { throw SkillError("本地 skill 条目过多，已停止操作。") }
                 if type == .typeDirectory {
@@ -350,7 +357,7 @@ public actor SkillStore {
     private func validateBackup(_ directory: URL, skill: InstalledSkill) throws {
         guard try itemType(directory) == .typeDirectory, try itemType(directory.appendingPathComponent("record.json")) == .typeRegular else { throw SkillError("旧版备份路径被占用：\(directory.path)") }
         let record = try JSONDecoder().decode(InstalledSkill.self, from: Data(contentsOf: directory.appendingPathComponent("record.json")))
-        guard record.id == skill.id, record.name == skill.name, try stamps(at: directory.appendingPathComponent("files")) == record.baseline else { throw SkillError("旧版备份已被修改，未覆盖：\(directory.path)") }
+        guard record.id == skill.id, record.name == skill.name, try stamps(at: directory.appendingPathComponent("files")) == trackedBaseline(record) else { throw SkillError("旧版备份已被修改，未覆盖：\(directory.path)") }
     }
 
     private func retryCleanup() throws -> [String] {

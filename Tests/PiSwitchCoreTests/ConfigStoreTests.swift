@@ -444,6 +444,114 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: file), baseline)
     }
 
+    func testModelUserAgentLifecycle() throws {
+        try write(#"{"providers":{"proxy":{"headers":{"User-Agent":"Provider/1.0","X-Provider":"keep"},"models":[{"id":"m","headers":{"X-Model":"keep"},"future":{"keep":true}},{"id":"other","headers":{"User-Agent":"Other/1.0"}}]}}}"#)
+        let loaded = try store.load()
+        var document = loaded.document
+        let providerHeaders = document.providers[0].raw["headers"]
+        let otherModel = document.providers[0].models[1].raw
+        XCTAssertFalse(document.providers[0].models[0].userAgentEnabled)
+        XCTAssertEqual(document.providers[0].models[0].userAgent.text, "")
+        XCTAssertEqual(try JSONValue.decode(document.encoded()), try readJSON())
+
+        document.providers[0].models[0].setUserAgentEnabled(true)
+        XCTAssertEqual(document.providers[0].models[0].userAgent.text, "claude-cli/2.1.295 (external, cli)")
+        try store.save(document, baseline: loaded.baseline)
+        let enabled = try store.load()
+        document = enabled.document
+        XCTAssertTrue(document.providers[0].models[0].userAgentEnabled)
+        XCTAssertEqual(document.providers[0].models[0].userAgent.text, ModelDraft.defaultUserAgent)
+        var saved = try readJSON()["providers"]?["proxy"]
+        XCTAssertEqual(saved?["models"]?.arrayValue?.first?["headers"],
+                       .object(["User-Agent": .string(ModelDraft.defaultUserAgent), "X-Model": .string("keep")]))
+        XCTAssertEqual(saved?["headers"], providerHeaders)
+        XCTAssertEqual(saved?["models"]?.arrayValue?[1], .object(otherModel))
+
+        document.providers[0].models[0].userAgent.text = " Custom/2.0 "
+        document.providers[0].models[0].setUserAgentEnabled(false)
+        document.providers[0].models[0].setUserAgentEnabled(true)
+        XCTAssertEqual(document.providers[0].models[0].userAgent.text, " Custom/2.0 ")
+        let entry = try XCTUnwrap(CatalogEntry(provider: "catalog", json: .object([
+            "id": .string("m"), "name": .string("Catalog model"),
+            "contextWindow": .int(128000), "maxTokens": .int(8192),
+            "reasoning": .bool(false), "input": .array([.string("text")]),
+            "cost": .object(["input": .int(0), "output": .int(0), "cacheRead": .int(0), "cacheWrite": .int(0)]),
+            "headers": .object(["User-Agent": .string("Catalog/1.0")]),
+        ])))
+        document.providers[0].models = ModelMerge.merge(document.providers[0].models, importing: [
+            ImportChoice(modelID: "m", entry: entry),
+            ImportChoice(modelID: "new", entry: entry),
+        ])
+        XCTAssertFalse(document.providers[0].models[2].userAgentEnabled)
+        try store.save(document, baseline: enabled.baseline)
+        let edited = try store.load()
+        document = edited.document
+        XCTAssertEqual(document.providers[0].models[0].userAgent.text, "Custom/2.0")
+        document.providers[0].models[0].setUserAgentEnabled(false)
+        try store.save(document, baseline: edited.baseline)
+        saved = try readJSON()["providers"]?["proxy"]
+        XCTAssertEqual(saved?["models"]?.arrayValue?.first?["headers"], .object(["X-Model": .string("keep")]))
+        XCTAssertEqual(saved?["models"]?.arrayValue?.first?["future"], .object(["keep": .bool(true)]))
+        XCTAssertEqual(saved?["headers"], providerHeaders)
+        XCTAssertEqual(saved?["models"]?.arrayValue?[1], .object(otherModel))
+
+        let disabled = try store.load()
+        document = disabled.document
+        XCTAssertFalse(document.providers[0].models[0].userAgentEnabled)
+        XCTAssertEqual(document.providers[0].models[0].userAgent.text, "")
+        document.providers[0].models[0].setUserAgentEnabled(true)
+        XCTAssertEqual(document.providers[0].models[0].userAgent.text, ModelDraft.defaultUserAgent)
+        XCTAssertFalse(document.providers[0].models[2].userAgentEnabled)
+    }
+
+    func testModelUserAgentHeaderCaseAndRemoval() throws {
+        for key in ["User-Agent", "user-agent", "USER-AGENT"] {
+            var model = ModelDraft(json: [
+                "id": .string("m"),
+                "headers": .object([key: .string("Existing/1.0"), "X-Keep": .string("keep")]),
+            ])
+            XCTAssertTrue(model.userAgentEnabled)
+            XCTAssertEqual(model.userAgent.text, "Existing/1.0")
+            XCTAssertEqual(try model.build(providerName: "proxy", index: 0), .object(model.raw))
+            model.userAgent.text = "Edited/2.0"
+            XCTAssertEqual(try model.build(providerName: "proxy", index: 0)["headers"],
+                           .object(["User-Agent": .string("Edited/2.0"), "X-Keep": .string("keep")]))
+            model.setUserAgentEnabled(false)
+            XCTAssertEqual(try model.build(providerName: "proxy", index: 0)["headers"],
+                           .object(["X-Keep": .string("keep")]))
+        }
+        var model = ModelDraft(json: [
+            "id": .string("m"),
+            "headers": .object(["User-Agent": .string("A"), "user-agent": .string("B")]),
+        ])
+        model.setUserAgentEnabled(false)
+        XCTAssertNil(try model.build(providerName: "proxy", index: 0)["headers"])
+        model.setUserAgentEnabled(true)
+        model.userAgent.text = "Edited/3.0"
+        XCTAssertEqual(try model.build(providerName: "proxy", index: 0)["headers"],
+                       .object(["User-Agent": .string("Edited/3.0")]))
+    }
+
+    func testModelUserAgentValidationPreservesFile() throws {
+        try write(sample)
+        let loaded = try store.load()
+        for invalid in ["", "   ", "A\r\nX-Injected: yes", "A\n", "\tA", "A\u{0}", "A\u{7F}"] {
+            var document = loaded.document
+            document.providers[0].models[0].setUserAgentEnabled(true)
+            document.providers[0].models[0].userAgent.text = invalid
+            XCTAssertThrowsError(try store.save(document, baseline: loaded.baseline), invalid)
+            XCTAssertEqual(try Data(contentsOf: file), loaded.baseline)
+        }
+        for headers in [JSONValue.string("legacy"), .array([]), .null] {
+            var document = loaded.document
+            document.providers[0].models[0] = ModelDraft(json: ["id": .string("m"), "headers": headers])
+            XCTAssertNoThrow(try document.encoded())
+            document.providers[0].models[0].setUserAgentEnabled(true)
+            XCTAssertThrowsError(try store.save(document, baseline: loaded.baseline))
+            XCTAssertEqual(try Data(contentsOf: file), loaded.baseline)
+        }
+    }
+
     func testModelJSONFields() throws {
         try write(#"{"providers":{"proxy":{"models":[{"id":"m","thinkingLevelMap":{"high":"high","max":null},"compat":{"supportsStore":false,"extra":{"keep":true}}}]}}}"#)
         let loaded = try store.load()

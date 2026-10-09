@@ -24,8 +24,8 @@ struct SkillsView: View {
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 340)
                 Spacer()
-                Button { model.refresh() } label: { Label("读取本地", systemImage: "arrow.clockwise") }
-                    .disabled(model.isBusy).accessibilityLabel("读取本地")
+                Button { model.refresh() } label: { Label("刷新", systemImage: "arrow.clockwise") }
+                    .disabled(model.isBusy).accessibilityLabel("刷新")
                 Button { model.resetCandidates(); showsAdd = true } label: { Label("添加 Skills", systemImage: "plus") }
                     .disabled(model.isBusy || model.loadError != nil)
                     .accessibilityLabel("添加 Skills").accessibilityIdentifier("skills-add")
@@ -132,14 +132,14 @@ struct SkillsView: View {
     private func scopeControl(_ skill: InstalledSkill) -> some View {
         if scope == "global" {
             Toggle("全局启用", isOn: Binding(get: { skill.scopes.contains(SkillStore.globalScope) }, set: { model.toggle(skill, scope: SkillStore.globalScope, enabled: $0) }))
-                .toggleStyle(.switch).accessibilityLabel("\(skill.name) 全局启用")
+                .labelsHidden().toggleStyle(.switch).accessibilityLabel("\(skill.name) 全局启用")
         } else if scope == "project", let project {
             if skill.scopes.contains(SkillStore.globalScope) {
                 Text(model.scopeProblems[skill.id]?[SkillStore.globalScope] == nil ? "全局生效" : "全局入口异常").foregroundStyle(.secondary)
             }
             else {
                 Toggle("项目启用", isOn: Binding(get: { skill.scopes.contains(project) }, set: { model.toggle(skill, scope: project, enabled: $0) }))
-                    .toggleStyle(.switch).accessibilityLabel("\(skill.name) 项目启用")
+                    .labelsHidden().toggleStyle(.switch).accessibilityLabel("\(skill.name) 项目启用")
             }
         }
     }

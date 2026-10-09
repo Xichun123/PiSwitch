@@ -111,6 +111,8 @@ extension JSONValue {
 }
 
 public struct ModelDraft: Identifiable, Equatable, Sendable {
+    public static let defaultUserAgent = "claude-cli/2.1.295 (external, cli)"
+
     public let uid: UUID
     public var id: UUID { uid }
 
@@ -119,6 +121,8 @@ public struct ModelDraft: Identifiable, Equatable, Sendable {
     public var name: FieldText
     public var api: FieldText
     public var baseUrl: FieldText
+    public var userAgentEnabled: Bool
+    public var userAgent: FieldText
     public var reasoning: FieldText
     public var input: FieldText
     public var cost: FieldText
@@ -134,6 +138,9 @@ public struct ModelDraft: Identifiable, Equatable, Sendable {
         name = FieldText(json["name"])
         api = FieldText(json["api"])
         baseUrl = FieldText(json["baseUrl"])
+        let userAgentKey = json["headers"]?.objectValue?.keys.sorted().first { $0.lowercased() == "user-agent" }
+        userAgentEnabled = userAgentKey != nil
+        userAgent = FieldText(userAgentKey.flatMap { json["headers"]?[$0] })
         reasoning = FieldText(json: json["reasoning"])
         input = FieldText(json: json["input"])
         cost = FieldText(json: json["cost"])
@@ -144,6 +151,13 @@ public struct ModelDraft: Identifiable, Equatable, Sendable {
     }
 
     public var currentID: String { modelID.trimmed }
+
+    public mutating func setUserAgentEnabled(_ enabled: Bool) {
+        userAgentEnabled = enabled
+        if enabled, userAgent.trimmed.isEmpty {
+            userAgent.text = Self.defaultUserAgent
+        }
+    }
 
     public mutating func apply(_ entry: CatalogEntry) {
         name.text = entry.name
@@ -182,6 +196,22 @@ public struct ModelDraft: Identifiable, Equatable, Sendable {
         object.apply(string: name, to: "name")
         object.apply(string: api, to: "api")
         object.apply(string: address, to: "baseUrl")
+        let hadUserAgent = raw["headers"]?.objectValue?.keys.contains { $0.lowercased() == "user-agent" } ?? false
+        if userAgent.isEdited || userAgentEnabled != hadUserAgent {
+            if let existing = raw["headers"], existing.objectValue == nil {
+                throw ValidationError("“\(id)”的 headers 必须是 JSON 对象，无法修改 User-Agent")
+            }
+            var headers = raw["headers"]?.objectValue ?? [:]
+            headers = headers.filter { $0.key.lowercased() != "user-agent" }
+            if userAgentEnabled {
+                guard !userAgent.trimmed.isEmpty,
+                      userAgent.text.unicodeScalars.allSatisfy({ $0.value >= 32 && $0.value != 127 }) else {
+                    throw ValidationError("“\(id)”的 User-Agent 不能为空或包含换行及控制字符")
+                }
+                headers["User-Agent"] = .string(userAgent.trimmed)
+            }
+            object["headers"] = headers.isEmpty ? nil : .object(headers)
+        }
         try object.apply(positiveInt: contextWindow, to: "contextWindow", label: "“\(id)”的上下文窗口")
         try object.apply(positiveInt: maxTokens, to: "maxTokens", label: "“\(id)”的最大输出")
         try object.apply(json: reasoning, to: "reasoning")
