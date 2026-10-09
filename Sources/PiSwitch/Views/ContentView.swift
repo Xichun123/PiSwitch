@@ -4,8 +4,17 @@ import SwiftUI
 
 struct ContentView: View {
     @Bindable var app: AppModel
+    @Bindable var skills: SkillsModel
 
     var body: some View {
+        TabView {
+            modelsContent.tabItem { Label("模型", systemImage: "server.rack") }
+            SkillsView(model: skills).tabItem { Label("Skills", systemImage: "books.vertical") }
+        }
+        .background(WindowCloseGuard { skills.confirmIdle() && app.confirmClose() })
+    }
+
+    private var modelsContent: some View {
         VStack(spacing: 0) {
             NavigationSplitView {
                 SidebarView(app: app)
@@ -34,7 +43,6 @@ struct ContentView: View {
 
             StatusBar(app: app)
         }
-        .background(WindowCloseGuard { app.confirmClose() })
     }
 
     @ViewBuilder

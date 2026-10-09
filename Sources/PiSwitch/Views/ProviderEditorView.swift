@@ -219,7 +219,9 @@ private struct ModelSection: View {
                 LabeledContent("输入类型") {
                     HStack(spacing: 16) {
                         Toggle("文本", isOn: inputBinding(for: "text"))
+                            .accessibilityIdentifier("model-input-text")
                         Toggle("图像", isOn: inputBinding(for: "image"))
+                            .accessibilityIdentifier("model-input-image")
                     }
                     .toggleStyle(.checkbox)
                     .fixedSize()

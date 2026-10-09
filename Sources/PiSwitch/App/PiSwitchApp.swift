@@ -8,7 +8,7 @@ struct PiSwitchApp: App {
     var body: some Scene {
         let model = appDelegate.model
         Window("Pi Switch", id: "main") {
-            ContentView(app: model)
+            ContentView(app: model, skills: appDelegate.skills)
                 .frame(minWidth: 820, minHeight: 520)
         }
         .defaultSize(width: 1040, height: 700)
@@ -28,6 +28,7 @@ struct PiSwitchApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
+    let skills = SkillsModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Needed when launched via `swift run` without an app bundle.
@@ -40,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        model.confirmQuit() ? .terminateNow : .terminateCancel
+        skills.confirmIdle() && model.confirmQuit() ? .terminateNow : .terminateCancel
     }
 }
 #else

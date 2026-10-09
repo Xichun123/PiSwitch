@@ -44,7 +44,8 @@ struct Fixture: View {
 ''')
 PY
 bin=$(swift build --show-bin-path)
-swiftc -parse-as-library -I "$bin" "$tmp/Check.swift" "$bin/PiSwitchCore.o" -o "$tmp/ModelDisclosureCheck"
+swiftc -parse-as-library -I "$bin" -I .build/checkouts/Yams/Sources/CYaml/include \
+    "$tmp/Check.swift" "$bin/PiSwitchCore.o" "$bin/Yams.o" "$bin/CYaml.o" -o "$tmp/ModelDisclosureCheck"
 "$tmp/ModelDisclosureCheck" > "$tmp/log" 2>&1 &
 pid=$!
 osascript - "$pid" <<'APPLESCRIPT'
@@ -88,11 +89,11 @@ on checkInput(pid, textValue, imageValue)
         set found to 0
         repeat with node in nodes
             if role of node is "AXCheckBox" then
-                if name of node is "文本" then
-                    if value of node is not textValue then error "Unexpected text selection"
+                if value of attribute "AXIdentifier" of node is "model-input-text" then
+                    if value of node is not textValue then error "Unexpected text selection: actual=" & value of node & ", expected=" & textValue
                     set found to found + 1
-                else if name of node is "图像" then
-                    if value of node is not imageValue then error "Unexpected image selection"
+                else if value of attribute "AXIdentifier" of node is "model-input-image" then
+                    if value of node is not imageValue then error "Unexpected image selection: actual=" & value of node & ", expected=" & imageValue
                     set found to found + 1
                 end if
             end if
@@ -119,7 +120,12 @@ on run argv
     tell application "System Events"
         set nodes to entire contents of window 1 of p
         repeat with node in nodes
-            if role of node is "AXCheckBox" and name of node is "文本" then click node
+            if role of node is "AXCheckBox" then
+                if value of attribute "AXIdentifier" of node is "model-input-text" then
+                    click node
+                    exit repeat
+                end if
+            end if
         end repeat
     end tell
     delay 0.3

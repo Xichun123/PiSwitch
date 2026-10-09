@@ -31,3 +31,9 @@ ModelSection 用两个原生 checkbox Toggle 代替 input JSON 文本框，可�
 - 按用户要求，本次不执行构建、Core 测试或 GUI 自动化；不声称本次编译或界面验证通过。
 - 更新 `Tests/check-model-disclosure.sh`：展开后文本字段预期从 10 改为 9，增加两个复选框初始选中、取消文本不影响图像、收起再展开仍保留选择的断言；用户可自行运行。
 - 不读写用户实际配置，不重启应用。
+
+## Integration verification
+
+[Skills 管理](2026-10-08-skill-management.md) 接入时重新运行当前模型界面检查。文本和图像 Toggle 增加稳定辅助功能标识，不改变绑定或配置语义。脚本按 AXIdentifier 找控件，点击后立即结束枚举，避免 SwiftUI 重建控件树后重复点击。预览链接 Yams/CYaml 对象以适配新增 Core 依赖。
+
+`bash Tests/check-model-disclosure.sh` 当前通过：默认折叠、两个输入选项独立、收起再展开保留状态。`swift test` 当前 38 项通过。首次控件替换未验证的记录保留为历史事实，本节记录后续集成验证。

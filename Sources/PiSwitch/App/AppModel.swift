@@ -16,7 +16,7 @@ final class AppModel {
         var isError: Bool
     }
 
-    let store = ConfigStore()
+    let store: ConfigStore
     private(set) var loadState: LoadState = .loaded
     var document: ConfigDocument = .empty
     var selection: ProviderDraft.ID?
@@ -26,7 +26,8 @@ final class AppModel {
     private var baseline: Data?
     private var closeAcknowledged = false
 
-    init() {
+    init(store: ConfigStore = ConfigStore()) {
+        self.store = store
         load()
     }
 
