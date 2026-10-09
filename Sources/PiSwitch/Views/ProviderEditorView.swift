@@ -57,7 +57,7 @@ struct ProviderEditorView: View {
 
             TextField("地址", text: $provider.baseUrl.text, prompt: Text("https://api.example.com（覆盖内置时可空）"))
                 .onSubmit { provider.normalizeConnections() }
-            Text("OpenAI 两种格式使用末尾 /v1；Anthropic 使用不带末尾 /v1 的地址。保存和发现模型时自动处理。")
+            Text("OpenAI 两种格式使用末尾 /v1；Anthropic 使用不带末尾 /v1 的地址。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if provider.usesInsecureHTTP {
@@ -117,9 +117,6 @@ struct ProviderEditorView: View {
             }
         } header: {
             Text("连接")
-        } footer: {
-            Text("pi 运行时的 --api-key 和 auth.json 优先于这里的 apiKey。models.json 与 .bak 中的 Key 是明文，别提交到 git。")
-                .foregroundStyle(.secondary)
         }
     }
 
