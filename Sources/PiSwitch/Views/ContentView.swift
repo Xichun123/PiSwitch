@@ -1,28 +1,46 @@
 #if canImport(SwiftUI) && canImport(AppKit)
 import PiSwitchCore
 import SwiftUI
+import AppKit
 
 struct ContentView: View {
     @Bindable var app: AppModel
     @Bindable var skills: SkillsModel
+    @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
         TabView {
             modelsContent.tabItem { Label("模型", systemImage: "server.rack") }
-            SkillsView(model: skills).tabItem { Label("Skills", systemImage: "books.vertical") }
+            SkillsView(model: skills).frame(minWidth: 820).tabItem { Label("Skills", systemImage: "books.vertical") }
         }
         .background(WindowCloseGuard { skills.confirmIdle() && app.confirmClose() })
     }
 
     private var modelsContent: some View {
         VStack(spacing: 0) {
-            NavigationSplitView {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
                 SidebarView(app: app)
+                    .toolbar(removing: .sidebarToggle)
                     .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 320)
             } detail: {
-                detail
+                // Scope the default 820-point minimum to its columns: 590 detail + 230 sidebar.
+                detail.frame(minWidth: 590)
             }
             .toolbar {
+                ToolbarItem(placement: .navigation) {
+                    Button {
+                        // Let AppKit own the split-view animation, not a window-wide SwiftUI transaction.
+                        if !NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil) {
+                            withAnimation {
+                                columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
+                            }
+                        }
+                    } label: {
+                        Label(columnVisibility == .detailOnly ? "显示侧边栏" : "隐藏侧边栏", systemImage: "sidebar.left")
+                    }
+                    .accessibilityIdentifier("sidebar-toggle")
+                    .help(columnVisibility == .detailOnly ? "显示侧边栏" : "隐藏侧边栏")
+                }
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button {
                         app.reload()

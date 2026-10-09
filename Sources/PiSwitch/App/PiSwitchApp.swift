@@ -9,7 +9,7 @@ struct PiSwitchApp: App {
         let model = appDelegate.model
         Window("Pi Switch", id: "main") {
             ContentView(app: model, skills: appDelegate.skills)
-                .frame(minWidth: 820, minHeight: 520)
+                .frame(minHeight: 520)
         }
         .defaultSize(width: 1040, height: 700)
         .commands {

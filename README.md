@@ -48,7 +48,7 @@ swift run PiSwitch
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run PiSwitch
 ```
 
-可选 UI 检查：`bash Tests/check-skills-ui.sh` 和 `bash Tests/check-model-disclosure.sh`。需要终端已有 System Events 辅助功能权限；脚本使用临时技能库及虚构模型，不修改真实配置。Skills 检查同时覆盖启动不请求网络、批量部分失败继续、安全停止和写任务不重入。Yams 负责 YAML frontmatter，CryptoKit 负责指纹，当前 Skills Core 需要 Apple 平台。
+可选 UI 检查：`bash Tests/check-skills-ui.sh`、`bash Tests/check-model-disclosure.sh` 和 `bash Tests/check-sidebar-ui.sh`。需要终端已有 System Events 辅助功能权限；脚本使用临时技能库及虚构模型，不修改真实配置。Skills 检查同时覆盖启动不请求网络、批量部分失败继续、安全停止和写任务不重入。Yams 负责 YAML frontmatter，CryptoKit 负责指纹，当前 Skills Core 需要 Apple 平台。
 
 ## 安装与发布
 
