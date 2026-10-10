@@ -1,6 +1,6 @@
 # PiSwitch
 
-用于编辑 Pi 模型配置和管理 Skills 的 macOS 原生应用，基于 SwiftUI 和 Swift Package Manager。模型配置位于 `~/.pi/agent/models.json`。
+用于编辑 Pi 模型配置、管理 Skills 和 AGENTS.md 的 macOS 原生应用，基于 SwiftUI 和 Swift Package Manager。模型配置位于 `~/.pi/agent/models.json`。
 
 - 编辑 provider 连接和模型参数。
 - 从接口发现模型，并从目录匹配模型元数据。
@@ -27,6 +27,22 @@
 
 安装记录位于 `~/PiSwitch/skills-state.json`，暂存位于 `~/PiSwitch/staging/`。记录损坏时停止写入；崩溃后遗留的未知操作目录只提示检查，不自动删除。正常失败恢复不代表断电或外部并发写入的完整事务保证。默认全局入口不自动跟随自定义 `PI_CODING_AGENT_DIR`。
 
+## AGENTS.md 管理
+
+独立的 AGENTS 页分为「全局版本」「项目模板」「项目文件」。全局版本和模板保存在 `~/PiSwitch/agents/`，名称、来源和应用记录位于 `~/PiSwitch/agents-state.json`。启动只读取，不自动导入或部署。
+
+- 全局可以保存多个命名版本。「保存」只修改库内容；「应用到全局」经内容对照确认后，复制到 `~/.pi/agent/AGENTS.md`，不创建软链接。可以导入现有全局文件，导入不改原文件。
+- 全局文件被外部修改时，可另存为新版本、明确备份后覆盖或取消；不会自动回写原版本。解除管理保留真实文件，不等于禁用指令。
+- 项目通过文件夹选择或已有 Skills 项目路径登记。模板复制到 `<项目目录>/AGENTS.md`，之后独立编辑。修改或删除模板不传播到项目；项目内容也可以保存为新模板。已有文件使用模板时必须确认替换。
+- 每个写入对象保留最近一次旧内容，支持恢复；实际全局文件与库版本分别备份。文件内容、身份、时间或权限变化会阻止写入。损坏记录、备份篡改、链接、硬链接、特殊权限／属性／ACL 不会被静默覆盖；超过 2 MiB、非 UTF-8 或含 NUL 的文件不接管。
+- 未保存保护覆盖对象、分区、Tab 切换和关闭退出。`⌘S` 只保存当前编辑对象，不自动应用版本；Skills 页不执行文档保存。
+
+Pi 会累加全局和启动目录祖先链的指令。同目录优先选择 `AGENTS.override.md`，再选 `AGENTS.md`／`AGENTS.MD`、`CLAUDE.md`／`CLAUDE.MD`。override 遮蔽普通文件时拒绝部署，但仍可明确编辑底层文件；在只有 CLAUDE 的项目创建 AGENTS 前提示加载来源变化。项目指令不依赖 Pi 项目信任。
+
+实际指令文件变化后，在运行中的 Pi 执行 `/reload`；差异较大时建议另开会话。磁盘一致不表示现有会话已经重载。加载链是按所选启动目录的预测，未处理嵌套 linked worktree 去重，也不能识别 `--no-context-files`、SDK 或扩展改写。默认全局位置不自动跟随自定义 `PI_CODING_AGENT_DIR`。
+
+复制只带 Markdown 内容，不复制附件、改写相对路径或替换变量。App 不执行指令里的命令、不上传内容、不修改项目 `.gitignore`。备份位于 `~/PiSwitch/agents/backups/`，未知暂存位于 `~/PiSwitch/agents/staging/`，只提示检查，不自动删除。正常失败恢复不承诺断电或外部并发写入下的完整事务。
+
 ## 环境要求
 
 - macOS 27 或更高版本（以 `Package.swift` 为准）。
@@ -48,7 +64,19 @@ swift run PiSwitch
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run PiSwitch
 ```
 
-可选 UI 检查：`bash Tests/check-skills-ui.sh`、`bash Tests/check-model-disclosure.sh` 和 `bash Tests/check-sidebar-ui.sh`。需要终端已有 System Events 辅助功能权限；脚本使用临时技能库及虚构模型，不修改真实配置。Skills 检查同时覆盖启动不请求网络、批量部分失败继续、安全停止和写任务不重入。Yams 负责 YAML frontmatter，CryptoKit 负责指纹，当前 Skills Core 需要 Apple 平台。
+可选 UI 检查：`bash Tests/check-agents-ui.sh`、`bash Tests/check-skills-ui.sh`、`bash Tests/check-model-disclosure.sh` 和 `bash Tests/check-sidebar-ui.sh`。需要终端已有 System Events 辅助功能权限；脚本使用临时技能库及虚构模型，不修改真实配置。Skills 检查同时覆盖启动不请求网络、批量部分失败继续、安全停止和写任务不重入。Yams 负责 YAML frontmatter，CryptoKit 负责指纹，当前 Skills Core 需要 Apple 平台。
+
+### 本机更新并重启
+
+已有 `/Applications/PiSwitch.app` 时执行：
+
+```sh
+bash scripts/install-local.sh
+```
+
+脚本构建 Release、准备并签名新包，正常退出 PiSwitch 后替换安装并重新打开。不生成 DMG，不运行测试、验证套件或哈希检查，也不修改 Pi 配置和指令库。旧安装保留在 `.build/install-local.<随机值>/PiSwitch.previous.app`。
+
+如果有未保存修改，在软件中选择保存或放弃；取消退出或退出未完成时，脚本停止，不强杀进程。该快捷脚本复用已安装包的版本号和最低系统版本，不支持首次安装或包元数据变更；正式打包仍使用下方的发行脚本。
 
 ## 安装与发布
 

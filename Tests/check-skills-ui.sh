@@ -8,7 +8,7 @@ pid=""
 trap 'if [ -n "$pid" ]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi; rm -rf "$tmp"' EXIT
 swiftc -parse-as-library -swift-version 5 -target "$(uname -m)-apple-macos27.0" -I "$bin" -I .build/checkouts/Yams/Sources/CYaml/include \
     Tests/SkillsUICheck.swift Sources/PiSwitch/App/SkillsModel.swift Sources/PiSwitch/App/AppModel.swift \
-    Sources/PiSwitch/App/WindowCloseGuard.swift Sources/PiSwitch/Views/*.swift \
+    Sources/PiSwitch/App/WindowCloseGuard.swift Sources/PiSwitch/App/AgentsModel.swift Sources/PiSwitch/Views/*.swift \
     "$bin/PiSwitchCore.o" "$bin/Yams.o" "$bin/CYaml.o" -o "$tmp/SkillsUICheck"
 "$tmp/SkillsUICheck" "$tmp" > "$tmp/log" 2>&1 &
 pid=$!

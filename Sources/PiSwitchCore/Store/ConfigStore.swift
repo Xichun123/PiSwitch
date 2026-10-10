@@ -93,8 +93,8 @@ public struct ConfigStore: Sendable {
         }
     }
 
-    /// Writes via a 0600 temp file + rename, so the key is never world-readable, even briefly.
-    static func secureWrite(_ data: Data, to url: URL) throws {
+    /// The temporary file starts at 0600; requested permissions are set before replacement.
+    static func secureWrite(_ data: Data, to url: URL, permissions: Int = 0o600) throws {
         let temp = url.deletingLastPathComponent()
             .appendingPathComponent(".\(url.lastPathComponent).\(UUID().uuidString).tmp")
         let fd = open(temp.path, O_WRONLY | O_CREAT | O_EXCL, 0o600)
@@ -103,6 +103,7 @@ public struct ConfigStore: Sendable {
         let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
         do {
             try handle.write(contentsOf: data)
+            guard fchmod(fd, mode_t(permissions)) == 0 else { throw posixError("设置文件权限") }
             try handle.synchronize()
             try handle.close()
         } catch {
@@ -115,7 +116,6 @@ public struct ConfigStore: Sendable {
             try? FileManager.default.removeItem(at: temp)
             throw error
         }
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 
     private static func posixError(_ action: String) -> NSError {

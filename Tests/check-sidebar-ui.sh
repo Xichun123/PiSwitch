@@ -9,7 +9,7 @@ trap 'if [ -n "$pid" ]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev
 bin=$(swift build --show-bin-path)
 swiftc -parse-as-library -I "$bin" -I .build/checkouts/Yams/Sources/CYaml/include \
     Sources/PiSwitch/App/AppModel.swift Sources/PiSwitch/App/SkillsModel.swift \
-    Sources/PiSwitch/App/WindowCloseGuard.swift Sources/PiSwitch/Views/*.swift \
+    Sources/PiSwitch/App/WindowCloseGuard.swift Sources/PiSwitch/App/AgentsModel.swift Sources/PiSwitch/Views/*.swift \
     Tests/SidebarUICheck.swift "$bin/PiSwitchCore.o" "$bin/Yams.o" "$bin/CYaml.o" -o "$work/SidebarUICheck"
 for scenario in clean dirty clean; do
     PISWITCH_UI_TEST_ROOT="$work/data" "$work/SidebarUICheck" "--$scenario" > "$work/log" 2>&1 &

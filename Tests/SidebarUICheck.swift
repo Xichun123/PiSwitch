@@ -8,6 +8,8 @@ final class SidebarCheckDelegate: NSObject, NSApplicationDelegate {
     let directory: URL
     let model: AppModel
     let skills: SkillsModel
+    let agents: AgentsModel
+    let navigation = AppNavigation()
     let initialData: Data
     let draft: ConfigDocument
     let selection: ProviderDraft.ID?
@@ -36,6 +38,7 @@ final class SidebarCheckDelegate: NSObject, NSApplicationDelegate {
         draft = model.document
         selection = model.selection
         skills = SkillsModel(store: SkillStore(root: directory.appendingPathComponent("skills"), home: directory))
+        agents = AgentsModel(store: AgentsStore(root: directory.appendingPathComponent("agents-library"), agentDirectory: directory.appendingPathComponent("agent")))
         super.init()
     }
 
@@ -95,7 +98,7 @@ struct SidebarCheckApp: App {
     @NSApplicationDelegateAdaptor(SidebarCheckDelegate.self) var delegate
     var body: some Scene {
         Window("SidebarUICheck", id: "check") {
-            ContentView(app: delegate.model, skills: delegate.skills)
+            ContentView(app: delegate.model, skills: delegate.skills, agents: delegate.agents, navigation: delegate.navigation)
                 .frame(minHeight: 520)
         }
         .defaultSize(width: 1040, height: 700)

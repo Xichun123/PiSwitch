@@ -6,14 +6,23 @@ import AppKit
 struct ContentView: View {
     @Bindable var app: AppModel
     @Bindable var skills: SkillsModel
+    @Bindable var agents: AgentsModel
+    @Bindable var navigation: AppNavigation
     @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
-        TabView {
-            modelsContent.tabItem { Label("模型", systemImage: "server.rack") }
-            SkillsView(model: skills).frame(minWidth: 820).tabItem { Label("Skills", systemImage: "books.vertical") }
+        TabView(selection: Binding(get: { navigation.page }, set: { page in
+            let change = { navigation.page = page }
+            if navigation.page != .agents || agents.confirmLeave(then: change) { change() }
+        })) {
+            modelsContent.tabItem { Label("模型", systemImage: "server.rack") }.tag(AppPage.models)
+            SkillsView(model: skills).frame(minWidth: 820).tabItem { Label("Skills", systemImage: "books.vertical") }.tag(AppPage.skills)
+            AgentsView(model: agents, knownProjects: skills.library.projects).frame(minWidth: 820)
+                .tabItem { Label("AGENTS", systemImage: "doc.text") }.tag(AppPage.agents)
         }
-        .background(WindowCloseGuard { skills.confirmIdle() && app.confirmClose() })
+        .background(WindowCloseGuard {
+            skills.confirmIdle() && agents.confirmLeave(then: { NSApp.keyWindow?.performClose(nil) }) && app.confirmClose()
+        })
     }
 
     private var modelsContent: some View {

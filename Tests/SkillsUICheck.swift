@@ -83,7 +83,8 @@ struct SkillsUICheck {
             try Data("invalid JSON".utf8).write(to: invalidConfig)
             let appModel = AppModel(store: ConfigStore(path: invalidConfig))
             assert(!appModel.isLoaded && !appModel.canSave)
-            window.contentView = NSHostingView(rootView: ContentView(app: appModel, skills: model))
+            let agents = AgentsModel(store: AgentsStore(root: directory.appendingPathComponent("agents-library"), agentDirectory: directory.appendingPathComponent("agent")))
+            window.contentView = NSHostingView(rootView: ContentView(app: appModel, skills: model, agents: agents, navigation: AppNavigation()))
             window.center(); window.makeKeyAndOrderFront(nil); app.activate()
             app.run()
         } catch { fputs("FAIL: \(error)\n", stderr); exit(1) }
