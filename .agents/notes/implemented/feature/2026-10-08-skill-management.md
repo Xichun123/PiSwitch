@@ -75,6 +75,8 @@ v1 更新到 v2 后保存 v1；v2 成功更新到 v3 后保存 v2，自动删除
 
 ### 实现落点
 
+当前 [B 卡片界面](2026-10-10-management-card-ui.md) 使用自适应网格、搜索和作用域分类。搜索、筛选及范围切换清除多选，所选批量操作只针对可见条目；「批量操作」中的全部检查及全部可更新项仍覆盖整个库。存储、手动网络检查和启用决定不变。
+
 - `Sources/PiSwitchCore/Skills/SkillTypes.swift`：来源、frontmatter、安全校验、指纹和记录类型。
 - `Sources/PiSwitchCore/Skills/SkillRepository.swift`：复用 `HTTPFetcher` 获取固定快照及文件，未修改原发现请求逻辑。
 - `Sources/PiSwitchCore/Skills/SkillStore.swift`：安装、更新、项目、链接、失败恢复及清理；Core 不依赖 UI 框架。

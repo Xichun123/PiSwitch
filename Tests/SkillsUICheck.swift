@@ -29,7 +29,10 @@ private final class SkillsUIProtocol: URLProtocol {
 @main
 struct SkillsUICheck {
     static func download(name: String, repository: String, version: Int) throws -> SkillDownload {
-        let files = ["SKILL.md": Data("---\nname: \(name)\ndescription: version \(version)\n---\n".utf8)]
+        let description = name == "blocked"
+            ? "version \(version) " + String(repeating: "Long fixture description for layout. ", count: 12) + "DESCRIPTION-END"
+            : "version \(version)"
+        let files = ["SKILL.md": Data("---\nname: \(name)\ndescription: \(description)\n---\n".utf8)]
         let entries = files.map { path, data in SkillTreeEntry(path: "skill/" + path, mode: "100644", type: "blob", sha: SkillSafety.blobSHA(data), size: data.count) }
         let snapshot = SkillRepositorySnapshot(repository: try SkillRepositoryAddress("https://github.com/" + repository), commit: version == 2 ? SkillsUIProtocol.commit : String(repeating: "a", count: 40), entries: entries)
         return SkillDownload(snapshot: snapshot, path: "skill", metadata: try SkillMetadata.parse(files["SKILL.md"]!), files: files)
@@ -73,11 +76,28 @@ struct SkillsUICheck {
             try await wait(model)
             assert(model.candidates.count == 1 && model.candidateProblems["skill"] != nil)
             model.resetCandidates()
-            print("PASS: no startup network, batch partial failure, write-task guard, safe stop, candidate duplicate state")
+            var sample = model.library.skills.first { $0.name == "working" }!
+            assert(SkillCardFilter.all.matches(sample, query: " WORKING "))
+            assert(SkillCardFilter.all.matches(sample, query: "VERSION 2"))
+            assert(SkillCardFilter.all.matches(sample, query: "owner/repo"))
+            assert(SkillCardFilter.all.matches(sample, query: "skill"))
+            assert(!SkillCardFilter.all.matches(sample, query: "no such skill"))
+            assert(SkillCardFilter.disabled.matches(sample, query: ""))
+            sample.description = "中文搜索"
+            assert(SkillCardFilter.all.matches(sample, query: "中文"))
+            sample.scopes = [directory.appendingPathComponent("project").path]
+            assert(SkillCardFilter.projects.matches(sample, query: ""))
+            assert(!SkillCardFilter.global.matches(sample, query: ""))
+            assert(!SkillCardFilter.disabled.matches(sample, query: ""))
+            sample.scopes.append(SkillStore.globalScope)
+            assert(SkillCardFilter.global.matches(sample, query: ""))
+            assert(!SkillCardFilter.projects.matches(sample, query: ""), "Global scope must take precedence")
+            assert(!SkillCardFilter.global.matches(sample, query: "absent"), "Scope filter must combine with search")
+            print("PASS: no startup network, batch partial failure, write-task guard, safe stop, candidate duplicate state, search and mutually exclusive scope filters")
             fflush(stdout)
             let app = NSApplication.shared
             app.setActivationPolicy(.regular)
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 740), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 740), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             window.title = "SkillsUICheck"
             let invalidConfig = directory.appendingPathComponent("models.json")
             try Data("invalid JSON".utf8).write(to: invalidConfig)

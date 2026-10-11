@@ -21,6 +21,7 @@ Status: implemented
 - [原生侧栏动作](2026-10-09-sidebar-native-animation.md) 部分重叠：保留其动作路由、Binding 同步与辅助功能名称；宽度试验证明单独改变动作不能解决窄窗口跳变。本决定补充布局约束的作用域，不把旧候选倒写为已解决问题。
 - [工具栏溢出修复](2026-10-09-sidebar-toolbar-overflow.md) 部分重叠：固定按钮、移除自动 sidebarToggle、工具栏作用域及草稿保留继续适用。恢复自动按钮的试验仍有半程跳变，并重新观察到溢出指示器，不能撤销这项修复。
 - [模型默认折叠](../../implemented/feature/2026-10-01-collapsible-model-details.md) 和 [Skills 管理](../../implemented/feature/2026-10-08-skill-management.md) 部分重叠：模型展开/草稿逻辑及 Skills 操作契约不变；Skills 保留其原有最小可用宽度。
+- [管理页 B 卡片界面](../../implemented/feature/2026-10-10-management-card-ui.md) 保留 Skills、AGENTS 各自 820 点的内容下限，不把它移回模型分栏根节点；模型页布局不变。
 
 ## Alternatives considered
 
